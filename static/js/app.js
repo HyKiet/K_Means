@@ -1,189 +1,142 @@
 // ============================================================
-// app.js — Dashboard Logic
+// app.js - Gọi API từ Flask Backend và vẽ giao diện (Dashboard)
 // ============================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadClusters();
-    loadDataset();
-});
+// Hàm tiện ích: Lấy thẻ HTML theo ID (viết tắt giống jQuery)
+const $ = (id) => document.getElementById(id);
 
-// ── Predict Student ──
-async function predictStudent() {
-    const btn = document.getElementById('btn-predict');
-    const spinner = document.getElementById('spinner');
-    const btnText = document.getElementById('btn-text');
+// Hàm tiện ích: Gọi API đến server và tự động chuyển kết quả về dạng JSON
+const api = (url, opt) => fetch(url, opt).then((r) => r.json());
 
-    const studyHours = parseFloat(document.getElementById('study-hours').value);
-    const absences = parseFloat(document.getElementById('absences').value);
-    const gpa = parseFloat(document.getElementById('gpa').value);
+let clusters = [];
 
-    if (isNaN(studyHours) || isNaN(absences) || isNaN(gpa)) {
-        showAlert('Vui lòng nhập đầy đủ thông tin!', 'error');
-        return;
-    }
-
-    btn.disabled = true;
-    spinner.style.display = 'inline-block';
-    btnText.textContent = 'Đang phân tích...';
-
-    try {
-        const res = await fetch('/api/predict', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ study_hours: studyHours, absences, gpa })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-            displayResult(data);
-        } else {
-            showAlert(data.error || 'Lỗi server!', 'error');
-        }
-    } catch (e) {
-        showAlert('Không thể kết nối API!', 'error');
-    } finally {
-        btn.disabled = false;
-        spinner.style.display = 'none';
-        btnText.textContent = 'Phân Loại Ngay';
-    }
-}
-
-// ── Display Result ──
-function displayResult(data) {
-    const box = document.getElementById('result-container');
-    const label = document.getElementById('result-label');
-    const desc = document.getElementById('result-desc');
-    const icon = document.getElementById('result-icon');
-
-    const emojis = { 'Xuat sac': '🏆', 'Gioi': '⭐', 'Trung binh': '📊', 'Yeu': '⚠️' };
-    
-    label.textContent = data.label;
-    label.style.color = data.color;
-    desc.textContent = data.description;
-    icon.textContent = emojis[data.label] || '🎓';
-
-    box.style.borderColor = data.color;
-    box.classList.add('show');
-}
-
-// ── Load Clusters ──
+// --- 1. Gọi API lấy thông tin 4 cụm -> Render ra các thẻ thống kê ---
 async function loadClusters() {
-    try {
-        const res = await fetch('/api/clusters');
-        const data = await res.json();
-        if (data.success) renderClusters(data.clusters);
-    } catch (e) {
-        console.error('Load clusters err:', e);
-    }
+  // Đợi kết quả từ API /api/clusters
+  const data = (await api("/api/clusters")).clusters;
+  
+  // Sắp xếp các cụm từ: Xuất sắc -> Giỏi -> Trung bình -> Yếu (Dựa vào GPA giảm dần)
+  clusters = data.sort((a, b) => b.centroid.gpa - a.centroid.gpa);
+  
+  // Tạo mã HTML động cho từng thẻ thống kê và nhét vào thẻ div có id="stats"
+  $("stats").innerHTML = clusters.map((c) => `
+    <div class="stat">
+      <div class="top">
+        <span class="name">${c.label}</span>
+        <span class="dot" style="background:${c.color}"></span>
+      </div>
+      <div class="num" id="count-${c.id}">–<span> SV</span></div>
+      <div class="sub">Học ~${c.centroid.study_hours}h · vắng ~${c.centroid.absences} · GPA ~${c.centroid.gpa}</div>
+    </div>`).join("");
 }
 
-function renderClusters(clusters) {
-    const container = document.getElementById('clusters-container');
-    if (!container) return;
-
-    const emojis = { 'Xuat sac': '🏆', 'Gioi': '⭐', 'Trung binh': '📊', 'Yeu': '⚠️' };
-    const sorted = [...clusters].sort((a, b) => b.centroid.gpa - a.centroid.gpa);
-
-    container.innerHTML = sorted.map(c => `
-        <div class="summary-card" style="border-left-color: ${c.color}">
-            <div class="summary-header">
-                <div class="summary-title" style="color: ${c.color}">${c.label}</div>
-                <div class="summary-icon">${emojis[c.label] || '📊'}</div>
-            </div>
-            <div class="summary-desc">${c.description}</div>
-            <div class="summary-stats">
-                <div class="stat-item">
-                    <div class="stat-val">${c.centroid.study_hours}h</div>
-                    <div class="stat-lbl">Giờ học</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-val">${c.centroid.absences}</div>
-                    <div class="stat-lbl">Vắng</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-val">${c.centroid.gpa}</div>
-                    <div class="stat-lbl">GPA</div>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-// ── Load Charts ──
+// --- 2. Dataset -> bang + bieu do + dem so luong ---
 async function loadDataset() {
-    try {
-        const res = await fetch('/api/dataset');
-        const data = await res.json();
-        if (data.success) {
-            renderCharts(data.data);
-        }
-    } catch (e) {
-        console.error('Load dataset err:', e);
-    }
+  const res = await api("/api/dataset");
+  $("total").textContent = res.total;
+
+  $("table-body").innerHTML = res.data.map((r) => `
+    <tr>
+      <td>${r.StudentID}</td>
+      <td>${r.StudyHoursPerWeek}</td>
+      <td>${r.Absences}</td>
+      <td>${r.GPA}</td>
+      <td><span class="tag" style="background:${r.Color}">${r.Label}</span></td>
+    </tr>`).join("");
+
+  const counts = {};
+  res.data.forEach((r) => (counts[r.Cluster] = (counts[r.Cluster] || 0) + 1));
+  clusters.forEach((c) => ($(`count-${c.id}`).innerHTML = `${counts[c.id] || 0}<span> SV</span>`));
+
+  drawCharts(res.data);
 }
 
-function renderCharts(students) {
-    const groups = {};
-    students.forEach(s => {
-        if (!groups[s.Label]) groups[s.Label] = { data1: [], data2: [], color: s.Color };
-        groups[s.Label].data1.push({ x: s.StudyHoursPerWeek, y: s.GPA });
-        groups[s.Label].data2.push({ x: s.Absences, y: s.GPA });
-    });
-
-    const chartOpts = {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'bottom', labels: { boxWidth: 10, padding: 15, font: { family: 'Inter', size: 11 } } },
-            tooltip: {
-                backgroundColor: '#1f2937', titleColor: '#f9fafb', bodyColor: '#d1d5db',
-                cornerRadius: 6, padding: 10, bodyFont: { family: 'Inter', size: 11 }
-            }
-        },
-        scales: {
-            x: { grid: { color: '#f3f4f6' }, ticks: { color: '#6b7280', font: { size: 10 } } },
-            y: { grid: { color: '#f3f4f6' }, ticks: { color: '#6b7280', font: { size: 10 } }, min: 0, max: 4.2 }
-        }
-    };
-
-    const ctx1 = document.getElementById('scatter-chart');
-    if (ctx1) {
-        new Chart(ctx1, {
-            type: 'scatter',
-            data: { datasets: Object.entries(groups).map(([label, g]) => ({
-                label, data: g.data1, backgroundColor: g.color + '90', borderColor: g.color,
-                borderWidth: 1, pointRadius: 5, pointHoverRadius: 7
-            })) },
-            options: chartOpts
-        });
-    }
-
-    const ctx2 = document.getElementById('scatter-chart-2');
-    if (ctx2) {
-        new Chart(ctx2, {
-            type: 'scatter',
-            data: { datasets: Object.entries(groups).map(([label, g]) => ({
-                label, data: g.data2, backgroundColor: g.color + '90', borderColor: g.color,
-                borderWidth: 1, pointRadius: 5, pointHoverRadius: 7
-            })) },
-            options: chartOpts
-        });
-    }
+// --- 3. Bieu do phan tan (Chart.js, theme sang, theo dung thu tu cum) ---
+const AXIS = "#6b7280", GRID = "#eceff3";
+function scatterData(data, xKey) {
+  return clusters.map((c) => ({
+    label: c.label, backgroundColor: c.color, pointRadius: 4, pointHoverRadius: 6,
+    data: data.filter((r) => r.Cluster === c.id).map((r) => ({ x: r[xKey], y: r.GPA })),
+  }));
+}
+function makeChart(id, data, xKey, xTitle) {
+  new Chart($(id), {
+    type: "scatter",
+    data: { datasets: scatterData(data, xKey) },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: AXIS, boxWidth: 10, font: { size: 11 } } } },
+      scales: {
+        x: { title: { display: true, text: xTitle, color: AXIS }, ticks: { color: AXIS }, grid: { color: GRID } },
+        y: { title: { display: true, text: "GPA", color: AXIS }, ticks: { color: AXIS }, grid: { color: GRID } },
+      },
+    },
+  });
+}
+function drawCharts(data) {
+  makeChart("chart1", data, "StudyHoursPerWeek", "Giờ học / tuần");
+  makeChart("chart2", data, "Absences", "Số buổi vắng");
 }
 
-// ── Utils ──
-function showAlert(msg, type = 'success') {
-    const container = document.getElementById('alert-container');
-    if (!container) return;
-    
-    const el = document.createElement('div');
-    el.className = `alert ${type}`;
-    el.textContent = msg;
-    
-    container.appendChild(el);
-    setTimeout(() => {
-        el.style.opacity = '0';
-        setTimeout(() => el.remove(), 300);
-    }, 3000);
+// --- 4. Gửi dữ liệu Dự đoán sinh viên mới ---
+async function predict() {
+  // Lấy dữ liệu người dùng nhập từ 3 ô input
+  const body = {
+    study_hours: parseFloat($("study").value),
+    absences: parseFloat($("absence").value),
+    gpa: parseFloat($("gpa").value),
+  };
+  
+  // Kiểm tra nếu người dùng để trống bất kỳ ô nào
+  if ([body.study_hours, body.absences, body.gpa].some(isNaN))
+    return alert("Vui lòng nhập đủ 3 giá trị.");
+
+  // Gọi POST request lên Flask API (/api/predict) kèm theo dữ liệu JSON
+  const res = await api("/api/predict", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  
+  // Xử lý hiển thị kết quả
+  const box = $("result");
+  box.classList.add("show");
+  
+  // Nếu API báo lỗi (VD: nhập GPA = 10 -> lỗi vì vượt qua hệ số 4.0)
+  if (!res.success) {
+    $("r-emoji").textContent = "⚠️";
+    $("r-label").textContent = "Dữ liệu chưa hợp lệ";
+    $("r-label").style.color = "#b91c1c";
+    $("r-desc").textContent = res.error;
+    return;
+  }
+  
+  // Nếu thành công -> Cập nhật giao diện trả về đúng nhóm sinh viên đó
+  $("r-emoji").textContent = res.icon;
+  $("r-label").textContent = res.label;
+  $("r-label").style.color = res.color;
+  $("r-desc").textContent = res.description;
 }
+// Gán sự kiện click cho nút "Phân loại"
+$("btn-predict").addEventListener("click", predict);
 
+// --- 5. Toggle sidebar (responsive) ---
+const sidebar = $("sidebar"), overlay = $("overlay");
+function toggleSidebar() {
+  sidebar.classList.toggle("open");
+  overlay.classList.toggle("show");
+}
+$("menu-btn").addEventListener("click", toggleSidebar);
+overlay.addEventListener("click", toggleSidebar);
+// Bam vao 1 muc menu -> dong sidebar (tren mobile)
+document.querySelectorAll(".nav a").forEach((a) =>
+  a.addEventListener("click", () => {
+    if (sidebar.classList.contains("open")) toggleSidebar();
+  })
+);
 
+// --- Khoi tao ---
+(async function init() {
+  await loadClusters();
+  await loadDataset();
+})();

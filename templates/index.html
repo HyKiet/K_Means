@@ -1,125 +1,102 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Phân Loại Sinh Viên</title>
-    <!-- We don't need full Bootstrap if we wrote custom dashboard CSS, but we can keep icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phân loại sinh viên · K-Means</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/style.css" rel="stylesheet">
 </head>
 <body>
 
-    <!-- Topbar -->
-    <header class="topbar">
-        <div class="brand">
-            <i class="bi bi-diagram-3-fill"></i> K-Means Dashboard
-        </div>
-        <div class="topbar-right">
-            Model: Scikit-Learn | K=4
-        </div>
-    </header>
+<!-- Lop phu khi mo sidebar tren mobile -->
+<div class="overlay" id="overlay"></div>
 
-    <!-- Alerts Container -->
-    <div class="alert-container" id="alert-container"></div>
+<div class="layout">
 
-    <main class="dashboard-container">
-        
-        <h1 class="page-title">Tổng Quan Phân Loại</h1>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="mark"><i class="bi bi-mortarboard-fill"></i></div>
+      <div>K-Means<small>Phân loại sinh viên</small></div>
+    </div>
+    <nav class="nav">
+      <a href="#tongquan" class="active"><i class="bi bi-grid-1x2"></i> Tổng quan</a>
+    </nav>
+    <div class="foot">Đề tài 6<br>Scikit-learn · Flask<br>K = 4 cụm</div>
+  </aside>
 
-        <!-- Top 4 Cards: Cluster Summaries -->
-        <div class="cluster-summary-grid" id="clusters-container">
-            <!-- Rendered via JS -->
-            <div style="color:var(--text-muted); font-size:0.9rem">Đang tải dữ liệu cụm...</div>
-        </div>
+  <!-- Main -->
+  <div style="flex:1; min-width:0;">
 
-        <!-- Main Layout: Form (Left) & Charts (Right) -->
-        <div style="display: grid; grid-template-columns: 350px 1fr; gap: 1.5rem;" class="main-grid">
-            
-            <!-- Predict Form -->
-            <div class="dash-card">
-                <h2 class="card-title"><i class="bi bi-magic"></i> Dự Đoán Phân Loại</h2>
-                
-                <div class="form-group">
-                    <label class="form-label" for="study-hours">Giờ học / tuần</label>
-                    <input type="number" class="form-control" id="study-hours" placeholder="VD: 25" min="0" max="50">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="absences">Số buổi vắng</label>
-                    <input type="number" class="form-control" id="absences" placeholder="VD: 3" min="0" max="30">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="gpa">Điểm GPA</label>
-                    <input type="number" class="form-control" id="gpa" placeholder="VD: 3.5" min="0" max="4.0" step="0.01">
-                </div>
-                
-                <button class="btn-primary" id="btn-predict" onclick="predictStudent()">
-                    <span class="spinner" id="spinner"></span>
-                    <span id="btn-text">Phân Loại Ngay</span>
-                </button>
+    <!-- Topbar (chi hien tren man hinh nho) -->
+    <div class="topbar">
+      <button class="menu-btn" id="menu-btn" aria-label="Mở menu"><i class="bi bi-list"></i></button>
+      <span class="tb-title">K-Means · Phân loại sinh viên</span>
+    </div>
 
-                <!-- Result Box -->
-                <div class="result-box" id="result-container">
-                    <div class="result-emoji" id="result-icon">🎓</div>
-                    <div class="result-content">
-                        <div class="result-label" id="result-label">...</div>
-                        <div class="result-desc" id="result-desc">Kết quả dự đoán sẽ hiển thị tại đây.</div>
-                    </div>
-                </div>
+    <main class="main">
+      <header class="head" id="tongquan">
+        <h1>Phân loại sinh viên theo kết quả học tập</h1>
+        <p>Gom nhóm sinh viên bằng K-Means dựa trên giờ tự học, số buổi vắng và GPA.</p>
+      </header>
+
+      <!-- Stat cards -->
+      <section class="stats" id="stats">
+        <div class="stat"><div class="sub">Đang tải…</div></div>
+      </section>
+
+      <!-- Predict + charts -->
+      <section class="row" id="dudoan">
+        <div class="panel">
+          <h2><i class="bi bi-search"></i> Dự đoán sinh viên</h2>
+          <div class="field">
+            <label>Giờ tự học mỗi tuần (0–50)</label>
+            <input type="number" id="study" placeholder="ví dụ 25">
+          </div>
+          <div class="field">
+            <label>Số buổi vắng (0–30)</label>
+            <input type="number" id="absence" placeholder="ví dụ 3">
+          </div>
+          <div class="field">
+            <label>Điểm GPA (0–4.0)</label>
+            <input type="number" id="gpa" placeholder="ví dụ 3.5" step="0.01">
+          </div>
+          <button class="btn" id="btn-predict">Phân loại</button>
+          <div class="result" id="result">
+            <div class="ic" id="r-emoji">🎓</div>
+            <div>
+              <div class="lab" id="r-label">—</div>
+              <div class="ds" id="r-desc"></div>
             </div>
-
-            <!-- Charts -->
-            <div class="dash-card">
-                <h2 class="card-title"><i class="bi bi-graph-up"></i> Biểu Đồ Phân Cụm</h2>
-                <div class="charts-grid">
-                    <div>
-                        <div style="font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:0.5rem; text-align:center;">Giờ học vs GPA</div>
-                        <div class="chart-container">
-                            <canvas id="scatter-chart"></canvas>
-                        </div>
-                    </div>
-                    <div>
-                        <div style="font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:0.5rem; text-align:center;">Vắng mặt vs GPA</div>
-                        <div class="chart-container">
-                            <canvas id="scatter-chart-2"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+          </div>
         </div>
 
-        <!-- Model Evaluation Section -->
-        <div class="dash-card evaluation-card" style="margin-top: 1.5rem;">
-            <h2 class="card-title"><i class="bi bi-graph-up"></i> Đánh Giá Thuật Toán & Xác Định K (Elbow Method)</h2>
-            <p class="text-weak" style="margin-bottom: 1.5rem;">Biểu đồ trực tiếp từ Python Model mô tả quá trình xác định số lượng cụm (K) tối ưu.</p>
-            
-            <div class="evaluation-container" style="display: flex; gap: 2rem; align-items: flex-start;">
-                <!-- Elbow Chart Image -->
-                <div class="elbow-chart-wrapper" style="flex: 1; max-width: 600px; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; background: #fff;">
-                    <img src="/static/images/elbow_chart.png" alt="Biểu đồ Elbow Method" style="width: 100%; height: auto; border-radius: 4px;">
-                </div>
-                
-                <!-- Explanation -->
-                <div class="evaluation-text-wrapper" style="flex: 1; padding: 1.5rem; background: var(--bg-body); border-radius: var(--radius); border: 1px solid var(--border-color);">
-                    <h3 style="color: var(--primary); margin-bottom: 1rem; font-size: 1.1rem;">Phương pháp Cùi Chỏ (Elbow Method)</h3>
-                    <p style="color: var(--text-main); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1rem;">
-                        Để chọn được số cụm <strong style="color: var(--primary)">K = 4</strong> cho dự án, thuật toán K-Means đã được chạy thử nghiệm với các giá trị K từ 2 đến 8.
-                    </p>
-                    <ul class="theory-list" style="padding-left: 1.2rem; color: var(--text-main); font-size: 0.95rem; line-height: 1.7;">
-                        <li style="margin-bottom: 0.5rem;">Trục X thể hiện số lượng cụm K.</li>
-                        <li style="margin-bottom: 0.5rem;">Trục Y là <strong>Inertia</strong> (tổng bình phương khoảng cách từ các điểm dữ liệu đến tâm cụm).</li>
-                        <li style="margin-bottom: 0.5rem;">Đường đồ thị giảm dần khi K tăng. Tuy nhiên, tại <strong>K = 4</strong>, đồ thị tạo thành một góc gấp khúc rõ rệt (giống như "cùi chỏ").</li>
-                        <li style="margin-bottom: 0.5rem; color: var(--c-weak); font-weight: 600;">=> Kết luận: Chọn K=4 là tối ưu nhất.</li>
-                    </ul>
-                </div>
-            </div>
+        <div class="panel">
+          <h2><i class="bi bi-diagram-3"></i> Phân bố sinh viên theo cụm</h2>
+          <div class="charts">
+            <div class="chart-box"><h4>Giờ học và GPA</h4><canvas id="chart1"></canvas></div>
+            <div class="chart-box"><h4>Vắng mặt và GPA</h4><canvas id="chart2"></canvas></div>
+          </div>
         </div>
+      </section>
+
+
+      <!-- Data table -->
+      <section class="panel" id="dulieu">
+        <h2><i class="bi bi-table"></i> Danh sách sinh viên (<span id="total">0</span>)</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Mã SV</th><th>Giờ học</th><th>Vắng</th><th>GPA</th><th>Phân loại</th></tr></thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
+  </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-    <script src="/static/js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/js/app.js"></script>
 </body>
 </html>

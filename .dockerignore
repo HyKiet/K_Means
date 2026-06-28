@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.ipynb_checkpoints/
+*.pdf
+slides/
+notebook/.ipynb_checkpoints/
+.venv/
+venv/

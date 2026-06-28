@@ -1,203 +1,101 @@
 # ============================================================
-# app.py — Flask Backend cho ứng dụng phân loại sinh viên K-Means
+# app.py - Flask Backend (Machine Learning Service)
 # ============================================================
-# KIẾN TRÚC:
-#   Frontend (HTML/CSS/JS) ←→ Flask API ←→ Model .pkl (Scikit-learn)
-#   KHÔNG sử dụng Node.js — chỉ dùng Python Flask
+# Kien truc:  Frontend (HTML/CSS/JS)  <->  Flask API  <->  Model .pkl
+# KHONG dung Node.js - chi dung Python Flask.
+#
+# 4 endpoint:
+#   GET  /              -> trang dashboard
+#   GET  /api/clusters  -> thong tin 4 cum + tam cum
+#   GET  /api/dataset   -> toan bo du lieu kem nhan cum
+#   POST /api/predict   -> phan loai 1 sinh vien moi
 # ============================================================
 
-from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
-import joblib
-import numpy as np
-import pandas as pd
 import os
+import joblib       # Dùng để đọc/ghi các file model đã được huấn luyện (.pkl)
+import numpy as np  # Xử lý mảng và ma trận tính toán số học
+import pandas as pd # Xử lý dữ liệu dạng bảng (DataFrame) giống như Excel
+from flask import Flask, render_template, request, jsonify # Thư viện tạo web server Backend
+from flask_cors import CORS # Cho phép Frontend (nếu khác domain) gọi được API của Flask
 
-# ============================================================
-# KHỞI TẠO FLASK APP
-# ============================================================
-app = Flask(__name__)
-CORS(app)  # Cho phép Cross-Origin requests
+app = Flask(__name__) # Khởi tạo ứng dụng web Flask
+CORS(app)             # Bật tính năng CORS chống chặn request chéo domain
 
-# ============================================================
-# LOAD MODEL ĐÃ ĐÓNG BĂNG (.pkl)
-# ============================================================
-MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model')
-DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+BASE = os.path.dirname(__file__)
+FEATURES = ["StudyHoursPerWeek", "Absences", "GPA"]
 
-# Load 3 file .pkl đã được serialize bằng joblib
-model = joblib.load(os.path.join(MODEL_DIR, 'kmeans_model.pkl'))
-scaler = joblib.load(os.path.join(MODEL_DIR, 'scaler.pkl'))
-labels_map = joblib.load(os.path.join(MODEL_DIR, 'labels_map.pkl'))
+# --- Load mô hình đã đóng băng (.pkl) ---
+# Tại sao phải đóng băng? Vì quá trình train rất mất thời gian. Ta chỉ train 1 lần, 
+# lưu ra file .pkl, khi chạy web chỉ việc load lên để dùng luôn.
+model = joblib.load(os.path.join(BASE, "model", "kmeans_model.pkl")) # Model K-Means (chứa thông tin 4 cụm)
+scaler = joblib.load(os.path.join(BASE, "model", "scaler.pkl"))      # Bộ chuẩn hóa dữ liệu
+labels_map = joblib.load(os.path.join(BASE, "model", "labels_map.pkl")) # Map id cụm ra ý nghĩa (Tên, màu sắc, nhận xét)
+print(f"[OK] Đã load model K-Means (k={model.n_clusters})")
 
-print("✅ Đã load model K-Means từ file .pkl thành công!")
-print(f"   - kmeans_model.pkl: Mô hình K-Means (k={model.n_clusters})")
-print(f"   - scaler.pkl: StandardScaler")
-print(f"   - labels_map.pkl: Bản đồ ý nghĩa các cụm")
 
-# ============================================================
-# API ROUTES (ENDPOINTS)
-# ============================================================
-
-# ----------------------------------------------------------
-# ROUTE 1: GET / — Trang chủ
-# ----------------------------------------------------------
-# Method: GET
-# Mô tả: Render trang HTML chính (index.html)
-# Response: HTML page
-# ----------------------------------------------------------
-@app.route('/')
+@app.route("/")
 def index():
-    """Render trang chủ web app."""
-    return render_template('index.html')
+    """Trang dashboard chinh."""
+    return render_template("index.html")
 
 
-# ----------------------------------------------------------
-# ROUTE 2: POST /api/predict — Dự đoán phân loại sinh viên
-# ----------------------------------------------------------
-# Method: POST
-# Content-Type: application/json
-# Body: { "study_hours": 25, "absences": 3, "gpa": 3.5 }
-# Response: {
-#   "success": true,
-#   "cluster": 0,
-#   "label": "Xuất sắc",
-#   "description": "GPA cao, học nhiều, ít vắng",
-#   "color": "#10b981"
-# }
-# ----------------------------------------------------------
-@app.route('/api/predict', methods=['POST'])
-def predict():
+@app.route("/api/clusters")
+def api_clusters():
+    """Tra ve thong tin 4 cum: ten, mo ta, mau, icon, tam cum (centroid)."""
+    clusters = []
+    for cid in range(model.n_clusters):
+        info = labels_map[cid]
+        clusters.append({"id": cid, **info})
+    return jsonify({"success": True, "clusters": clusters})
+
+
+@app.route("/api/dataset")
+def api_dataset():
+    """Tra toan bo du lieu sinh vien (da lam sach) kem nhan cum tu mo hinh."""
+    df = pd.read_csv(os.path.join(BASE, "data", "students_cleaned.csv"))
+    labels = model.predict(scaler.transform(df[FEATURES].values))
+    df["Cluster"] = labels
+    df["Label"] = [labels_map[c]["label"] for c in labels]
+    df["Color"] = [labels_map[c]["color"] for c in labels]
+    return jsonify({"success": True, "total": len(df),
+                    "data": df.to_dict(orient="records")})
+
+
+@app.route("/api/predict", methods=["POST"])
+def api_predict():
     """
-    API dự đoán phân loại sinh viên.
+    API Phân loại 1 sinh viên mới (khi người dùng bấm nút trên Web).
+    Body JSON nhận vào: {"study_hours": 25, "absences": 3, "gpa": 3.5}
+    Quy trình (Flow): Nhận dữ liệu -> Kiểm tra tính hợp lệ -> Chuẩn hóa (scaler) -> Dự đoán (model.predict) -> Trả về kết quả.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        sh = float(data.get("study_hours"))
+        ab = float(data.get("absences"))
+        gpa = float(data.get("gpa"))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Du lieu khong hop le"}), 400
+
+    # Kiểm tra khoảng giá trị có hợp lý không (validate business logic)
+    checks = [(sh, 0, 50, "Giờ học"), (ab, 0, 30, "Số buổi vắng"), (gpa, 0, 4.0, "GPA")]
+    for val, lo, hi, name in checks:
+        if not (lo <= val <= hi):
+            # Nếu giá trị lọt ra ngoài vùng cho phép -> trả về mã lỗi 400 (Bad Request)
+            return jsonify({"success": False, "error": f"{name} phải nằm trong khoảng {lo}-{hi}"}), 400
+
+    # Bước 1: scaler.transform() -> Đưa dữ liệu người dùng nhập về cùng tỷ lệ (chuẩn hóa) với tập data lúc train
+    # Bước 2: model.predict() -> Thuật toán K-Means tính khoảng cách đến 4 tâm cụm và chọn cụm gần nhất
+    cluster = int(model.predict(scaler.transform(np.array([[sh, ab, gpa]])))[0])
     
-    Flow:
-    1. Nhận dữ liệu JSON từ frontend
-    2. Validate input
-    3. Chuẩn hóa dữ liệu bằng scaler.pkl
-    4. Dự đoán cụm bằng kmeans_model.pkl
-    5. Tra cứu ý nghĩa cụm từ labels_map.pkl
-    6. Trả kết quả JSON
-    """
-    try:
-        data = request.get_json()
-        
-        # Validate input
-        study_hours = float(data.get('study_hours', 0))
-        absences = float(data.get('absences', 0))
-        gpa = float(data.get('gpa', 0))
-        
-        # Kiểm tra giá trị hợp lệ
-        if not (0 <= study_hours <= 50):
-            return jsonify({"success": False, "error": "Số giờ học phải từ 0-50"}), 400
-        if not (0 <= absences <= 30):
-            return jsonify({"success": False, "error": "Số buổi vắng phải từ 0-30"}), 400
-        if not (0 <= gpa <= 4.0):
-            return jsonify({"success": False, "error": "GPA phải từ 0-4.0"}), 400
-        
-        # Tạo input array
-        input_data = np.array([[study_hours, absences, gpa]])
-        
-        # Chuẩn hóa bằng scaler đã fit
-        input_scaled = scaler.transform(input_data)
-        
-        # Dự đoán cụm
-        cluster = int(model.predict(input_scaled)[0])
-        
-        # Tra cứu ý nghĩa
-        cluster_info = labels_map[cluster]
-        
-        return jsonify({
-            "success": True,
-            "cluster": cluster,
-            "label": cluster_info["label"],
-            "description": cluster_info["description"],
-            "color": cluster_info["color"]
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    # Bước 3: Lấy toàn bộ thông tin giải thích (tên nhóm, màu sắc, ý nghĩa) dựa vào id của cụm
+    info = labels_map[cluster]
+    
+    # Bước 4: Trả về Frontend định dạng JSON
+    return jsonify({"success": True, "cluster": cluster,
+                    "input": {"study_hours": sh, "absences": ab, "gpa": gpa}, **info})
 
 
-# ----------------------------------------------------------
-# ROUTE 3: GET /api/clusters — Thông tin tất cả các cụm
-# ----------------------------------------------------------
-# Method: GET
-# Response: { "clusters": [...], "centroids": [...] }
-# ----------------------------------------------------------
-@app.route('/api/clusters', methods=['GET'])
-def get_clusters():
-    """
-    API trả thông tin tất cả các cụm.
-    Bao gồm: tên, mô tả, màu sắc, và tâm cụm (centroid).
-    """
-    try:
-        # Chuyển centroid về scale gốc
-        centroids_original = scaler.inverse_transform(model.cluster_centers_)
-        
-        clusters = []
-        for i in range(model.n_clusters):
-            info = labels_map[i]
-            centroid = centroids_original[i]
-            clusters.append({
-                "id": i,
-                "label": info["label"],
-                "description": info["description"],
-                "color": info["color"],
-                "centroid": {
-                    "study_hours": round(float(centroid[0]), 1),
-                    "absences": round(float(centroid[1]), 1),
-                    "gpa": round(float(centroid[2]), 2)
-                }
-            })
-        
-        return jsonify({"success": True, "clusters": clusters})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ----------------------------------------------------------
-# ROUTE 4: GET /api/dataset — Dữ liệu gốc + phân cụm
-# ----------------------------------------------------------
-# Method: GET
-# Response: { "data": [...], "total": 50 }
-# ----------------------------------------------------------
-@app.route('/api/dataset', methods=['GET'])
-def get_dataset():
-    """
-    API trả toàn bộ dataset sinh viên kèm kết quả phân cụm.
-    Dùng để hiển thị bảng dữ liệu trên frontend.
-    """
-    try:
-        df = pd.read_csv(os.path.join(DATA_DIR, 'students_cleaned.csv'))
-        
-        # Predict cluster cho tất cả sinh viên
-        features = df[['StudyHoursPerWeek', 'Absences', 'GPA']].values
-        features_scaled = scaler.transform(features)
-        clusters = model.predict(features_scaled)
-        
-        # Thêm cột cluster và label
-        df['Cluster'] = clusters
-        df['Label'] = [labels_map[c]['label'] for c in clusters]
-        df['Color'] = [labels_map[c]['color'] for c in clusters]
-        
-        return jsonify({
-            "success": True,
-            "data": df.to_dict(orient='records'),
-            "total": len(df)
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ============================================================
-# CHẠY SERVER
-# ============================================================
-if __name__ == '__main__':
-    print("\n" + "=" * 50)
-    print("🚀 Flask Server đang chạy!")
-    print("   URL: http://localhost:5000")
-    print("=" * 50)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Server: http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)

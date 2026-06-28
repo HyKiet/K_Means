@@ -1,51 +1,102 @@
-# K-Means Student Clustering Project
+# Phân loại sinh viên bằng K-Means — Đề tài 6
 
-## 1. Giới thiệu Dự án
-Dự án này là một ứng dụng web mô phỏng việc phân loại (clustering) sinh viên dựa trên kết quả học tập và thói quen của họ bằng thuật toán học máy K-Means.
+Dự án này là một ứng dụng web **Dashboard** mô phỏng việc phân loại (clustering) sinh viên dựa trên kết quả học tập bằng thuật toán **K-Means** (Machine Learning - Scikit-learn).
 
-Dự án sử dụng mô hình học máy đã được huấn luyện trước bằng **Scikit-learn** và đóng gói thành các file `.pkl`. Sau đó, một server **Flask** được xây dựng để cung cấp các API kết nối với giao diện web Frontend (HTML/CSS/JS).
+## 1. Yêu Cầu Của Đề Tài (Checklist)
+- **Thiết kế Website:** Giao diện trực quan bằng HTML/CSS/JS thuần, hiển thị 4 KPI, biểu đồ phân tán (Chart.js) và bảng dữ liệu.
+- **Backend (Không Node.js):** Sử dụng 100% **Python Flask** làm Machine Learning Service.
+- **Mô Hình Đóng Băng (.pkl):** Thuật toán được train sẵn và serialize thành file `model.pkl` (Scikit-learn).
+- **Dataset (Kaggle):** Tham khảo từ [Kaggle – Student Performance Factors](https://www.kaggle.com/datasets/lainguyn123/student-performance-factors).
+  - INPUT: `StudyHoursPerWeek` (0-50), `Absences` (0-30), `GPA` (0-4.0).
+  - OUTPUT: Cluster sinh viên (Phân nhóm học lực).
 
-## 2. Yêu cầu Đề bài (Requirements)
-Từ kiến trúc và tính năng của hệ thống, chúng ta có thể thấy các yêu cầu chính của đề bài bao gồm:
+## 2. Cấu trúc thư mục (Dành cho AI & Lập trình viên)
+```text
+K_Means/
+├── app.py                       # File chính: Khởi động Flask Server (Port 5000)
+├── requirements.txt             # Chứa danh sách các thư viện Python cần cài đặt
+├── Dockerfile                   # Script để build Docker Image (đóng gói dự án)
+├── data/
+│   ├── students.csv             # Dữ liệu gốc
+│   └── students_cleaned.csv     # Dữ liệu đã qua tiền xử lý (xóa null, trùng, outlier)
+├── model/
+│   ├── train_model.py           # Code huấn luyện và tiền xử lý dữ liệu từ đầu
+│   ├── kmeans_model.pkl         # K-Means model (K=4)
+│   ├── scaler.pkl               # StandardScaler
+│   └── labels_map.pkl           # Config ý nghĩa các cụm
+├── templates/index.html         # Giao diện frontend
+└── static/css|js|images/        # Static resources (Chart.js, style...)
+```
 
-1. **Phân cụm dữ liệu**: Áp dụng thuật toán K-Means để nhóm các sinh viên thành các cụm (cluster) có đặc điểm học tập tương đồng nhau. Dữ liệu đầu vào gồm 3 yếu tố:
-   - `study_hours` (Số giờ học/tuần, từ 0 đến 50)
-   - `absences` (Số buổi vắng, từ 0 đến 30)
-   - `gpa` (Điểm trung bình học tập, từ 0 đến 4.0)
-2. **Backend**:
-   - Xây dựng một ứng dụng web không sử dụng Node.js, thay vào đó dùng **Python Flask**.
-   - Load các mô hình `.pkl` (`kmeans_model.pkl`, `scaler.pkl`, `labels_map.pkl`) vào Flask backend.
-   - Cung cấp API dự đoán phân loại cho một sinh viên mới: `POST /api/predict`.
-   - Cung cấp API hiển thị thông tin các cụm đã phân: `GET /api/clusters`.
-   - Cung cấp API xem toàn bộ tập dữ liệu gốc kèm theo nhãn: `GET /api/dataset`.
-3. **Frontend**:
-   - Sử dụng giao diện cơ bản (HTML/CSS/JS) gọi trực tiếp đến API của Flask.
-   - Hiển thị trang chủ `/` với giao diện tương tác và thân thiện.
-4. **Luồng dữ liệu (Data Flow)**:
-   - Frontend gửi dữ liệu (JSON) -> Flask API -> Validate -> Tiền xử lý (Scale) -> Dự đoán với model K-Means -> Map kết quả với nhãn tương ứng -> Trả về JSON hiển thị cho người dùng.
+## 3. Hướng Dẫn Cài Đặt Và Chạy (Local - Môi trường gốc)
 
-## 3. Cấu trúc Thư mục
-- `app.py`: File code chính khởi chạy Flask server và cấu hình các endpoints API.
-- `model/`: Chứa các model học máy đã đóng băng.
-  - `kmeans_model.pkl`: Model phân cụm.
-  - `scaler.pkl`: StandardScaler dùng để chuẩn hóa input.
-  - `labels_map.pkl`: Cấu hình ý nghĩa của các cụm phân loại.
-- `data/`: Chứa các dữ liệu đầu vào.
-  - `students_cleaned.csv`: Tập dữ liệu chuẩn hóa của sinh viên.
-- `static/`: Chứa các file tĩnh css, js (nếu có).
-- `templates/`: Chứa trang `index.html`.
-- `requirements.txt`: Các thư viện Python cần thiết.
+Nếu bạn không dùng Docker và muốn chạy trực tiếp bằng Python trên máy tính:
 
-## 4. Hướng dẫn Chạy Ứng dụng
-1. Cài đặt các thư viện yêu cầu:
+**Yêu cầu hệ thống:**
+- Cài đặt Python (phiên bản 3.10 trở lên). *Lưu ý: Bắt buộc phải tích chọn "Add python.exe to PATH" khi cài đặt.*
+
+**Các bước thực hiện:**
+1. Mở Terminal (Command Prompt / PowerShell) trỏ vào thư mục gốc của dự án `K_Means`.
+2. Cài đặt toàn bộ thư viện bắt buộc:
    ```bash
    pip install -r requirements.txt
    ```
-2. Chạy server Flask:
+3. Chạy Server Flask:
    ```bash
    python app.py
    ```
-3. Truy cập vào giao diện web qua trình duyệt:
+4. Truy cập trình duyệt ở đường dẫn: 👉 `http://localhost:5000`
+
+---
+
+## 4. Hướng Dẫn Chạy Bằng DOCKER 
+
+Sử dụng Docker đảm bảo môi trường dự án chạy đúng 100% ở bất kỳ thiết bị nào mà không cần cài đặt Python. 
+
+**Yêu cầu:** Đã cài đặt và mở **Docker Desktop** (Engine running).
+
+**Các bước thực hiện (Nhập trên Terminal tại thư mục dự án):**
+
+1. Build Image (Chờ tải thư viện Python vào bộ nhớ Docker):
+   ```bash
+   docker build -t kmeans_app .
    ```
-   http://localhost:5000
+2. Khởi chạy Container (Mở port 8080):
+   ```bash
+   docker run -d -p 8080:5000 --name kmeans_container kmeans_app
    ```
+3. Truy cập trang web qua Docker bằng đường link: 👉 `http://localhost:8080`
+
+*(Ghi chú: Để giải quyết lỗi font chữ hoặc hiển thị Emoji Unicode trong console Docker, file Dockerfile đã thêm `ENV PYTHONIOENCODING=utf-8`)*
+
+---
+
+## 5. API Documentation
+
+Backend Flask cung cấp các API để thao tác với dữ liệu (cấu trúc JSON):
+
+| Method | Endpoint | Chức năng |
+|---|---|---|
+| GET | `/` | Render giao diện HTML chính. |
+| GET | `/api/clusters` | Trả về thông tin ý nghĩa 4 cụm + tâm cụm (centroid). |
+| GET | `/api/dataset` | Lấy toàn bộ danh sách dữ liệu sinh viên kèm nhãn cụm. |
+| POST | `/api/predict` | API dự đoán cụm cho một học sinh mới đưa vào. |
+
+**Ví dụ Gọi `POST /api/predict`:**
+```json
+// Request (JSON)
+{
+  "study_hours": 35,
+  "absences": 1,
+  "gpa": 3.9
+}
+
+// Response (JSON)
+{
+  "success": true,
+  "cluster": 0,
+  "label": "Xuat sac",
+  "description": "GPA cao (>3.5), hoc nhieu (>25h/tuan), it vang (<3 buoi)",
+  "color": "#10b981"
+}
+```
