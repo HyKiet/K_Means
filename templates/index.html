@@ -36,62 +36,71 @@
     </div>
 
     <main class="main">
-      <header class="head" id="tongquan">
-        <h1>Phân loại sinh viên theo kết quả học tập</h1>
-        <p>Gom nhóm sinh viên bằng K-Means dựa trên giờ tự học, số buổi vắng và GPA.</p>
-      </header>
+        <header class="head" id="tongquan">
+          <h1>Phân loại sinh viên theo kết quả học tập</h1>
+          <p>Gom nhóm sinh viên bằng K-Means dựa trên giờ tự học, số buổi vắng và GPA.</p>
+        </header>
 
-      <!-- Stat cards -->
-      <section class="stats" id="stats">
-        <div class="stat"><div class="sub">Đang tải…</div></div>
-      </section>
+        <!-- Stat cards (Ẩn mặc định) -->
+        <section class="stats" id="stats" style="display: none;"></section>
 
-      <!-- Predict + charts -->
-      <section class="row" id="dudoan">
-        <div class="panel">
-          <h2><i class="bi bi-search"></i> Dự đoán sinh viên</h2>
-          <div class="field">
-            <label>Giờ tự học mỗi tuần (0–50)</label>
-            <input type="number" id="study" placeholder="ví dụ 25">
-          </div>
-          <div class="field">
-            <label>Số buổi vắng (0–30)</label>
-            <input type="number" id="absence" placeholder="ví dụ 3">
-          </div>
-          <div class="field">
-            <label>Điểm GPA (0–4.0)</label>
-            <input type="number" id="gpa" placeholder="ví dụ 3.5" step="0.01">
-          </div>
-          <button class="btn" id="btn-predict">Phân loại</button>
-          <div class="result" id="result">
-            <div class="ic" id="r-emoji">🎓</div>
-            <div>
-              <div class="lab" id="r-label">—</div>
-              <div class="ds" id="r-desc"></div>
+        <!-- Predict + charts -->
+        <section class="row" id="dudoan">
+          <div class="panel">
+            <h2><i class="bi bi-cloud-arrow-up-fill"></i> Tải lên tệp CSV</h2>
+            <p style="font-size: 0.82rem; color: var(--soft); margin-bottom: 12px;">Tải lên danh sách sinh viên để mô hình K-Means phân cụm.</p>
+            
+            <div class="upload-zone" id="upload-zone">
+              <i class="bi bi-file-earmark-spreadsheet-fill upload-icon"></i>
+              <p class="upload-text">Kéo thả tệp .csv vào đây hoặc click để chọn tệp</p>
+              <input type="file" id="file-input" accept=".csv" style="display: none;">
+            </div>
+            
+            <div class="upload-file-info" id="upload-file-info">
+              <i class="bi bi-filetype-csv text-success"></i>
+              <span class="file-name" id="file-name">Chưa chọn tệp</span>
+              <button class="btn-clear" id="btn-clear" style="display: none;"><i class="bi bi-x-circle-fill"></i></button>
+            </div>
+
+            <button class="btn" id="btn-upload" style="margin-top: 12px;" disabled>Phân tích dữ liệu</button>
+            
+            <div class="template-download" style="margin-top: 14px; text-align: center;">
+              <a href="/api/download_template" class="link-download">
+                <i class="bi bi-download"></i> Tải file CSV mẫu (.csv)
+              </a>
             </div>
           </div>
-        </div>
 
-        <div class="panel">
-          <h2><i class="bi bi-diagram-3"></i> Phân bố sinh viên theo cụm</h2>
-          <div class="charts">
-            <div class="chart-box"><h4>Giờ học và GPA</h4><canvas id="chart1"></canvas></div>
-            <div class="chart-box"><h4>Vắng mặt và GPA</h4><canvas id="chart2"></canvas></div>
+          <!-- Placeholder mặc định (Hiện ban đầu) -->
+          <div class="panel placeholder-panel" id="placeholder-panel" style="min-height: 380px; display: flex; align-items: center; justify-content: center;">
+            <div class="placeholder-content" style="text-align: center; max-width: 420px; padding: 20px;">
+              <i class="bi bi-database-fill-exclamation" style="font-size: 3rem; color: var(--soft); margin-bottom: 16px; display: inline-block;"></i>
+              <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; color: var(--ink);">Chưa có dữ liệu phân tích</h3>
+              <p style="font-size: 0.84rem; color: var(--soft); line-height: 1.5;">Vui lòng tải lên tệp CSV chứa danh sách sinh viên ở cột bên trái để mô hình K-Means tiến hành phân cụm và vẽ biểu đồ kết quả.</p>
+            </div>
           </div>
-        </div>
-      </section>
 
+          <!-- Biểu đồ phân cụm (Ẩn mặc định) -->
+          <div class="panel" id="charts-panel" style="display: none;">
+            <h2><i class="bi bi-diagram-3"></i> Phân bố sinh viên theo cụm</h2>
+            <div class="charts">
+              <div class="chart-box"><h4>Giờ học và GPA</h4><canvas id="chart1"></canvas></div>
+              <div class="chart-box"><h4>Vắng mặt và GPA</h4><canvas id="chart2"></canvas></div>
+            </div>
+          </div>
+        </section>
 
-      <!-- Data table -->
-      <section class="panel" id="dulieu">
-        <h2><i class="bi bi-table"></i> Danh sách sinh viên (<span id="total">0</span>)</h2>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Mã SV</th><th>Giờ học</th><th>Vắng</th><th>GPA</th><th>Phân loại</th></tr></thead>
-            <tbody id="table-body"></tbody>
-          </table>
-        </div>
-      </section>
+        <!-- Data table (Ẩn mặc định) -->
+        <section class="panel" id="dulieu" style="display: none;">
+          <h2><i class="bi bi-table"></i> Danh sách sinh viên (<span id="total">0</span>)</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Mã SV</th><th>Giờ học</th><th>Vắng</th><th>GPA</th><th>Phân loại</th></tr></thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 </div>

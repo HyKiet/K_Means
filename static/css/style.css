@@ -51,7 +51,7 @@ body {
 
 .sidebar .foot { position: absolute; bottom: 20px; font-size: .72rem; color: var(--soft); line-height: 1.5; }
 
-.main { flex: 1; padding: 22px 34px; max-width: 1180px; min-width: 0; }
+.main { flex: 1; padding: 22px 34px; min-width: 0; }
 
 /* ---------- Topbar (hamburger) ---------- */
 .topbar {
@@ -103,30 +103,106 @@ body {
 
 .row { display: grid; grid-template-columns: 300px 1fr; gap: 22px; align-items: start; }
 
-/* ---------- Form ---------- */
-.field { margin-bottom: 13px; }
-.field label { display: block; font-size: .82rem; color: var(--soft); margin-bottom: 5px; }
-.field input {
-  width: 100%; padding: 9px 11px; border: 1px solid var(--line);
-  border-radius: 7px; font-size: .92rem; color: var(--ink); background: #fcfcfd;
+/* ---------- Upload Zone ---------- */
+.upload-zone {
+  border: 2px dashed var(--line);
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  background: #fcfcfd;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
-.field input:focus { outline: none; border-color: var(--brand); background: #fff; }
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.upload-icon {
+  font-size: 2.2rem;
+  color: var(--soft);
+  transition: color 0.2s ease;
+}
+.upload-zone:hover .upload-icon, .upload-zone.dragover .upload-icon {
+  color: var(--brand);
+}
+.upload-text {
+  font-size: 0.8rem;
+  color: var(--soft);
+  line-height: 1.4;
+}
+
+.upload-file-info {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #fafbfc;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.upload-file-info i {
+  font-size: 1.2rem;
+}
+.upload-file-info .file-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn-clear {
+  background: none;
+  border: none;
+  color: var(--soft);
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+}
+.btn-clear:hover {
+  color: #ef4444;
+}
 
 .btn {
-  width: 100%; padding: 11px; border: none; border-radius: 7px;
-  background: var(--brand); color: #fff; font-size: .94rem; font-weight: 600;
-  cursor: pointer; margin-top: 4px;
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: 7px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.94rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
 }
-.btn:hover { background: #275c58; }
+.btn:hover {
+  background: #275c58;
+}
+.btn:disabled {
+  background: var(--line);
+  color: var(--soft);
+  cursor: not-allowed;
+}
 
-.result {
-  margin-top: 16px; padding: 14px 16px; border-radius: 8px;
-  background: #fafbfc; border: 1px solid var(--line); display: none; gap: 12px; align-items: center;
+.link-download {
+  font-size: 0.82rem;
+  text-decoration: none;
+  color: var(--brand);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
-.result.show { display: flex; }
-.result .ic { font-size: 1.9rem; }
-.result .lab { font-weight: 700; font-size: 1.1rem; }
-.result .ds { font-size: .82rem; color: var(--soft); }
+.link-download:hover {
+  text-decoration: underline;
+}
 
 /* ---------- Charts (to hon) ---------- */
 .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -151,6 +227,7 @@ th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--lin
 th { background: #fafbfc; color: var(--soft); font-weight: 600; position: sticky; top: 0; }
 tbody tr:hover { background: #fafbfc; }
 .tag { padding: 2px 10px; border-radius: 20px; font-size: .76rem; font-weight: 600; color: #fff; }
+
 
 /* ============================================================
    RESPONSIVE
